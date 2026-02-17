@@ -112,12 +112,14 @@ function convertToYAML(config) {
         yaml += `dealingOnTitle:\n`;
         yaml += `  optional: ${!isMandatory(config[12])}\n`;
         yaml += `  multiples: ${booleanConverter(config[13])}\n`;
-        yaml += `  dealingTypes:\n`;
-        const dealingTypes = config[14].replace(/"/g, '');
-        if (dealingTypes) {
-            dealingTypes.split(';').forEach(type => {
-                yaml += `    - ${type}\n`;
-            });
+        if (config[14]) {
+            const dealingTypes = config[14].replace(/"/g, '');
+            if (dealingTypes) {
+                yaml += `  dealingTypes:\n`;
+                dealingTypes.split(';').forEach(type => {
+                    yaml += `    - ${type}\n`;
+                });
+            }
         }
     }
     
@@ -132,7 +134,7 @@ function convertToYAML(config) {
     if (config[17] === 'Yes') {
         yaml += `# Object 3\n`;
         yaml += `dealingOnTitleSubjectInterestInLand:\n`;
-        yaml += `  label: ${config[18]}\n`;
+        if (config[18]) yaml += `  label: ${config[18]}\n`;
         yaml += `  optional: ${!booleanConverter(config[19])}\n`;
     }
     
@@ -184,13 +186,7 @@ function convertToYAML(config) {
         if (config[42]) yaml += `  label: ${config[42]}\n`;
         yaml += `  optional: ${!isMandatory(config[43])}\n`;
         yaml += `  multiples: ${booleanConverter(config[44])}\n`;
-        yaml += `  signingCertifications:\n`;
-        const signingCerts = config[45].replace(/"/g, '').replace(/ /g, '');
-        if (signingCerts) {
-            signingCerts.split(',').forEach(cert => {
-                yaml += `    - ${cert}\n`;
-            });
-        }
+        yaml += renderSigningCertification(config[45]);
         if (config[46]) yaml += `  signingPartyRole: ${config[46]}\n`;
     }
     
@@ -438,7 +434,12 @@ function convertToYAML(config) {
 }
 
 function booleanConverter(value) {
-    return value === 'Yes' ? 'true' : 'false';
+    if (value === 'Yes' || value === 'Y' || value === 'Mandatory') {
+        return true;
+    } else if (value === 'No' || value === 'N' || value === 'Optional') {
+        return false;
+    }
+    return false;
 }
 
 function isMandatory(value) {
