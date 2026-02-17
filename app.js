@@ -439,6 +439,7 @@ function booleanConverter(value) {
     } else if (value === 'No' || value === 'N' || value === 'Optional') {
         return false;
     }
+    
     return false;
 }
 
