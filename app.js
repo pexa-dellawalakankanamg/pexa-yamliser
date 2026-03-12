@@ -1,5 +1,48 @@
 let generatedFiles = [];
 let editor = null;
+let validationErrors = [];
+
+const VALIDATION_RULES = {
+    0: { name: 'Jurisdiction', values: ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'] },
+    7: { name: 'Land Title', values: ['Yes', 'No'] },
+    10: { name: 'Land Extent', values: ['whole', 'part'] },
+    11: { name: 'Dealing On Title', values: ['Yes', 'No'] },
+    15: { name: 'Dealing On Title Interest Type', values: ['Yes', 'No'] },
+    17: { name: 'Dealing On Title Subject Interest In Land', values: ['Yes', 'No'] },
+    20: { name: 'Current Interest Party Tenancy', values: ['Yes', 'No'] },
+    26: { name: 'Interest Party Tenancy', values: ['Yes', 'No'] },
+    31: { name: 'Current Proprietors Tenancy', values: ['Yes', 'No'] },
+    36: { name: 'Proprietors Tenancy', values: ['Yes', 'No'] },
+    41: { name: 'Applicants', values: ['Yes', 'No'] },
+    47: { name: 'Other Parties', values: ['Yes', 'No'] },
+    51: { name: 'Monetary 1', values: ['Yes', 'No'] },
+    56: { name: 'Monetary 2', values: ['Yes', 'No'] },
+    61: { name: 'Monetary 3', values: ['Yes', 'No'] },
+    66: { name: 'Date 1', values: ['Yes', 'No'] },
+    71: { name: 'Date 2', values: ['Yes', 'No'] },
+    76: { name: 'Date 3', values: ['Yes', 'No'] },
+    81: { name: 'Other Data 1', values: ['Yes', 'No'] },
+    85: { name: 'Other Data 2', values: ['Yes', 'No'] },
+    89: { name: 'Other Data 3', values: ['Yes', 'No'] },
+    93: { name: 'Other Data 4', values: ['Yes', 'No'] },
+    97: { name: 'Other Category 1', values: ['Yes', 'No'] },
+    100: { name: 'Other Category 2', values: ['Yes', 'No'] },
+    103: { name: 'Other Category 3', values: ['Yes', 'No'] },
+    106: { name: 'Other Category 4', values: ['Yes', 'No'] },
+    109: { name: 'Document References', values: ['Yes', 'No'] },
+    113: { name: 'Related Document', values: ['Yes', 'No'] },
+    119: { name: 'Stamp Duty', values: ['Yes', 'No', 'Y', 'N', 'N/A'] },
+    120: { name: 'CoRD Consent', values: ['Yes', 'No', 'N/A'] }
+};
+
+const COLUMNS_ALLOWING_NA = [117, 118, 119, 120];
+
+const INVALID_VALUES = {
+    4: { name: 'Form Name', invalid: ['N/A'], message: 'Valid form name or leave empty' }
+};
+
+const MANDATORY_OPTIONAL_FIELDS = [8, 12, 16, 19, 22, 28, 33, 38, 43, 49, 54, 59, 64, 69, 74, 79, 84, 88, 92, 96, 99, 102, 105, 108, 111, 115, 123, 126, 129, 132, 135];
+const BOOLEAN_FIELDS = [9, 13, 23, 44, 50, 55, 60, 65, 70, 75, 80, 112, 116, 122, 125, 128, 131, 134];
 
 function initMonaco() {
     require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
@@ -15,6 +58,99 @@ function initMonaco() {
 }
 
 window.addEventListener('load', initMonaco);
+
+function validateCell(index, value, documentName) {
+    const errors = [];
+    
+    if (value && value.toUpperCase() === 'N/A' && !COLUMNS_ALLOWING_NA.includes(index)) {
+        errors.push({
+            document: documentName,
+            column: index + 1,
+            field: `Column ${index + 1}`,
+            value: value,
+            expected: 'Valid value or leave empty (N/A not allowed)'
+        });
+        return errors;
+    }
+    
+    if (VALIDATION_RULES[index]) {
+        const rule = VALIDATION_RULES[index];
+        const valueLower = value ? value.toLowerCase() : '';
+        const validValues = rule.values.map(v => v.toLowerCase());
+        
+        if (value && !validValues.includes(valueLower)) {
+            errors.push({
+                document: documentName,
+                column: index + 1,
+                field: rule.name,
+                value: value,
+                expected: rule.values.join(', ')
+            });
+        }
+    }
+    
+    if (INVALID_VALUES[index]) {
+        const rule = INVALID_VALUES[index];
+        const valueLower = value ? value.toLowerCase() : '';
+        const invalidValues = rule.invalid.map(v => v.toLowerCase());
+        
+        if (value && invalidValues.includes(valueLower)) {
+            errors.push({
+                document: documentName,
+                column: index + 1,
+                field: rule.name,
+                value: value,
+                expected: rule.message
+            });
+        }
+    }
+    
+    if (MANDATORY_OPTIONAL_FIELDS.includes(index)) {
+        const valueLower = value ? value.toLowerCase() : '';
+        if (value && valueLower !== 'mandatory' && valueLower !== 'optional') {
+            errors.push({
+                document: documentName,
+                column: index + 1,
+                field: `Column ${index + 1}`,
+                value: value,
+                expected: 'Mandatory, Optional'
+            });
+        }
+    }
+    
+    if (BOOLEAN_FIELDS.includes(index)) {
+        const valueLower = value ? value.toLowerCase() : '';
+        if (value && valueLower !== 'yes' && valueLower !== 'no' && valueLower !== 'y' && valueLower !== 'n' && valueLower !== 'true' && valueLower !== 'false') {
+            errors.push({
+                document: documentName,
+                column: index + 1,
+                field: `Column ${index + 1}`,
+                value: value,
+                expected: 'Yes, No, Y, N, true, false'
+            });
+        }
+    }
+    
+    return errors;
+}
+
+function displayValidationErrors() {
+    const errorDiv = document.getElementById('validationErrors');
+    if (!errorDiv) return;
+    
+    if (validationErrors.length === 0) {
+        errorDiv.style.display = 'none';
+        return;
+    }
+    
+    errorDiv.style.display = 'block';
+    let html = '<h3>Validation Errors:</h3><ul>';
+    validationErrors.forEach(error => {
+        html += `<li><strong>${error.document}, Column ${error.column} (${error.field}):</strong> Invalid value "${error.value}". Expected: ${error.expected}</li>`;
+    });
+    html += '</ul>';
+    errorDiv.innerHTML = html;
+}
 
 function generateYAML() {
     const fileInput = document.getElementById('csvFile');
@@ -34,10 +170,18 @@ function generateYAML() {
             const csv = e.target.result;
             const lines = csv.split('\n').filter(line => line.trim());
             generatedFiles = [];
+            validationErrors = [];
             
             lines.forEach((line, index) => {
                 const config = parseCSVLine(line);
                 if (config.length > 0) {
+                    const documentName = config[2] || `Line ${index + 1}`;
+                    
+                    config.forEach((value, colIndex) => {
+                        const errors = validateCell(colIndex, value, documentName);
+                        validationErrors.push(...errors);
+                    });
+                    
                     const result = convertToYAML(config);
                     generatedFiles.push({ 
                         name: `${index + 1} ${result.documentName}.yml`, 
@@ -46,9 +190,15 @@ function generateYAML() {
                 }
             });
             
+            displayValidationErrors();
             displayOutput(generatedFiles);
             document.getElementById('downloadAllBtn').style.display = generatedFiles.length > 0 ? 'block' : 'none';
-            showStatus(`Successfully generated ${generatedFiles.length} YAML file(s)`, 'success');
+            
+            if (validationErrors.length > 0) {
+                showStatus(`Generated ${generatedFiles.length} YAML file(s) with ${validationErrors.length} validation warning(s)`, 'warning');
+            } else {
+                showStatus(`Successfully generated ${generatedFiles.length} YAML file(s)`, 'success');
+            }
         } catch (error) {
             showStatus(`Error: ${error.message}`, 'error');
         }
