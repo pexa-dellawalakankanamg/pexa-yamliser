@@ -580,6 +580,16 @@ function convertToYAML(config) {
         }
     }
     
+    // Dynamic Operative Words
+    if (config[136] && config[137]) {
+        yaml += `# Dyanamic Operative Words:\n`;
+        yaml += `dynamicOperativeWords:\n`;
+        yaml += constructDynamicOperativeWords(config, 136);
+        yaml += constructDynamicOperativeWords(config, 138);
+        yaml += constructDynamicOperativeWords(config, 140);
+        yaml += constructDynamicOperativeWords(config, 142);
+    }
+    
     return { yaml, documentName };
 }
 
@@ -595,6 +605,20 @@ function booleanConverter(value) {
 
 function isMandatory(value) {
     return value === 'Mandatory';
+}
+
+function constructDynamicOperativeWords(config, startIndex) {
+    let yaml = '';
+    if (config[startIndex] && config[startIndex + 1]) {
+        yaml += `  - categoryName: ${config[startIndex]}\n`;
+        yaml += `    mapping:\n`;
+        const mappingEntries = config[startIndex + 1].split(',');
+        for (const entry of mappingEntries) {
+            const cleanedEntry = entry.trim().replace(/"/g, '');
+            yaml += `      ${cleanedEntry}\n`;
+        }
+    }
+    return yaml;
 }
 
 function renderSigningCertification(certString) {
